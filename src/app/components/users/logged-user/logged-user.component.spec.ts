@@ -186,24 +186,26 @@ describe('LoggedUserComponent', () => {
 
   describe('changePassword', () => {
     it('should not open dialog and show error toast when user has auth_source ldap', () => {
+      const dialogSpy = vi.spyOn(component['dialog'], 'open');
       (component as any).controller = mockController;
       component.user.set({ ...mockUser, auth_source: 'ldap' });
 
       component.changePassword();
 
-      expect(mockDialog.open).not.toHaveBeenCalled();
+      expect(dialogSpy).not.toHaveBeenCalled();
       expect(mockToasterService.error).toHaveBeenCalledWith(
-        'Password cannot be changed for directory-authenticated accounts.',
+        'Password cannot be changed for directory-authenticated accounts.'
       );
     });
 
     it('should open dialog when user has auth_source local', () => {
+      const dialogSpy = vi.spyOn(component['dialog'], 'open').mockReturnValue({} as any);
       (component as any).controller = mockController;
       component.user.set({ ...mockUser, auth_source: 'local' });
 
       component.changePassword();
 
-      expect(mockDialog.open).toHaveBeenCalled();
+      expect(dialogSpy).toHaveBeenCalled();
     });
   });
 });

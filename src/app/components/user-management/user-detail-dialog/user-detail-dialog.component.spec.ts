@@ -480,16 +480,17 @@ describe('UserDetailDialogComponent', () => {
 
   describe('onChangePassword', () => {
     it('should open change password dialog when auth_source is local', () => {
+      const dialogSpy = vi.spyOn(component['dialog'], 'open').mockReturnValue({} as any);
       component.user = { ...mockUser, auth_source: 'local' };
       component.onChangePassword();
-      expect(mockDialog.open).toHaveBeenCalled();
+      expect(dialogSpy).toHaveBeenCalled();
     });
 
     it('should not open change password dialog when auth_source is ldap', () => {
-      (mockDialog.open as any).mockClear();
+      const dialogSpy = vi.spyOn(component['dialog'], 'open').mockReturnValue({} as any);
       component.user = { ...mockUser, auth_source: 'ldap' };
       component.onChangePassword();
-      expect(mockDialog.open).not.toHaveBeenCalled();
+      expect(dialogSpy).not.toHaveBeenCalled();
     });
   });
 
