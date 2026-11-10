@@ -86,8 +86,8 @@ export class UserDetailDialogComponent implements OnInit {
   initForm() {
     this.editUserForm = new UntypedFormGroup({
       username: new UntypedFormControl(
-        this.user.username,
-        [Validators.required, Validators.minLength(3), Validators.pattern('[a-zA-Z0-9_-]+$')],
+        { value: this.user.username, disabled: this.user.auth_source === 'ldap' },
+        [Validators.required, Validators.minLength(3), Validators.pattern(/^[a-zA-Z0-9_.@-]+$/)],
         [userNameAsyncValidator(this.controller, this.userService, this.user.username)],
       ),
       full_name: new UntypedFormControl(this.user.full_name),
