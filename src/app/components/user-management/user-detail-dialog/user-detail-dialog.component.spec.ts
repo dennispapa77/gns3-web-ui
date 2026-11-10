@@ -247,7 +247,7 @@ describe('UserDetailDialogComponent', () => {
 
       it('should show error toaster when getGroupsByUserId fails with error.error.message', async () => {
         (mockUserService.getGroupsByUserId as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({ error: { message: 'Groups failed' } }))
+          throwError(() => ({ error: { message: 'Groups failed' } })),
         );
 
         component.loadGroupsData();
@@ -257,9 +257,7 @@ describe('UserDetailDialogComponent', () => {
       });
 
       it('should use fallback message when error has no message', async () => {
-        (mockUserService.getGroupsByUserId as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({}))
-        );
+        (mockUserService.getGroupsByUserId as ReturnType<typeof vi.fn>).mockReturnValue(throwError(() => ({})));
 
         component.loadGroupsData();
         await vi.runAllTimersAsync();
@@ -269,7 +267,7 @@ describe('UserDetailDialogComponent', () => {
 
       it('should set groupsLoaded to true on error', async () => {
         (mockUserService.getGroupsByUserId as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({ error: { message: 'Failed' } }))
+          throwError(() => ({ error: { message: 'Failed' } })),
         );
 
         component.loadGroupsData();
@@ -279,7 +277,7 @@ describe('UserDetailDialogComponent', () => {
 
       it('should call markForCheck when getGroupsByUserId fails', async () => {
         (mockUserService.getGroupsByUserId as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({ error: { message: 'Failed' } }))
+          throwError(() => ({ error: { message: 'Failed' } })),
         );
 
         const cdrSpy = vi.spyOn(component['cd'], 'markForCheck');
@@ -322,7 +320,7 @@ describe('UserDetailDialogComponent', () => {
 
       it('should show error toaster when forkJoin fails with error.error.message', async () => {
         (mockRoleService.get as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({ error: { message: 'Load failed' } }))
+          throwError(() => ({ error: { message: 'Load failed' } })),
         );
 
         component.loadAceData();
@@ -332,9 +330,7 @@ describe('UserDetailDialogComponent', () => {
       });
 
       it('should use fallback message when error has no message', async () => {
-        (mockRoleService.get as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({}))
-        );
+        (mockRoleService.get as ReturnType<typeof vi.fn>).mockReturnValue(throwError(() => ({})));
 
         component.loadAceData();
         await vi.runAllTimersAsync();
@@ -344,7 +340,7 @@ describe('UserDetailDialogComponent', () => {
 
       it('should set acesLoaded to true on error', async () => {
         (mockRoleService.get as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({ error: { message: 'Failed' } }))
+          throwError(() => ({ error: { message: 'Failed' } })),
         );
 
         component.loadAceData();
@@ -354,7 +350,7 @@ describe('UserDetailDialogComponent', () => {
 
       it('should call markForCheck when load fails', async () => {
         (mockRoleService.get as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({ error: { message: 'Failed' } }))
+          throwError(() => ({ error: { message: 'Failed' } })),
         );
 
         const cdrSpy = vi.spyOn(component['cd'], 'markForCheck');
@@ -428,7 +424,7 @@ describe('UserDetailDialogComponent', () => {
 
       it('should show error toaster when update fails with error.error.message', async () => {
         (mockUserService.update as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({ error: { message: 'Update failed' } }))
+          throwError(() => ({ error: { message: 'Update failed' } })),
         );
         component.editUserForm.get('full_name')?.setValue('Updated Name');
         component.editUserForm.get('full_name')?.markAsDirty();
@@ -440,9 +436,7 @@ describe('UserDetailDialogComponent', () => {
       });
 
       it('should use fallback message when error has no message', async () => {
-        (mockUserService.update as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({}))
-        );
+        (mockUserService.update as ReturnType<typeof vi.fn>).mockReturnValue(throwError(() => ({})));
         component.editUserForm.get('full_name')?.setValue('Updated Name');
         component.editUserForm.get('full_name')?.markAsDirty();
 
@@ -454,7 +448,7 @@ describe('UserDetailDialogComponent', () => {
 
       it('should call markForCheck when update fails', async () => {
         (mockUserService.update as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({ error: { message: 'Update failed' } }))
+          throwError(() => ({ error: { message: 'Update failed' } })),
         );
         component.editUserForm.get('full_name')?.setValue('Updated Name');
         component.editUserForm.get('full_name')?.markAsDirty();
@@ -468,7 +462,7 @@ describe('UserDetailDialogComponent', () => {
 
       it('should not close dialog when update fails', async () => {
         (mockUserService.update as ReturnType<typeof vi.fn>).mockReturnValue(
-          throwError(() => ({ error: { message: 'Update failed' } }))
+          throwError(() => ({ error: { message: 'Update failed' } })),
         );
         component.editUserForm.get('full_name')?.setValue('Updated Name');
         component.editUserForm.get('full_name')?.markAsDirty();
@@ -485,10 +479,17 @@ describe('UserDetailDialogComponent', () => {
   });
 
   describe('onChangePassword', () => {
-    it('should open change password dialog (requires integration test)', () => {
-      // Dialog interaction requires full MatDialog integration
-      // This is tested in integration/e2e tests
-      expect(component.onChangePassword).toBeDefined();
+    it('should open change password dialog when auth_source is local', () => {
+      component.user = { ...mockUser, auth_source: 'local' };
+      component.onChangePassword();
+      expect(mockDialog.open).toHaveBeenCalled();
+    });
+
+    it('should not open change password dialog when auth_source is ldap', () => {
+      (mockDialog.open as any).mockClear();
+      component.user = { ...mockUser, auth_source: 'ldap' };
+      component.onChangePassword();
+      expect(mockDialog.open).not.toHaveBeenCalled();
     });
   });
 

@@ -31,7 +31,7 @@ export class LoggedUserComponent implements OnInit {
     private controllerService: ControllerService,
     private userService: UserService,
     private toasterService: ToasterService,
-    public dialog: MatDialog
+    public dialog: MatDialog,
   ) {}
 
   ngOnInit() {
@@ -48,6 +48,10 @@ export class LoggedUserComponent implements OnInit {
   }
 
   changePassword(): void {
+    if (this.user()?.auth_source === 'ldap') {
+      this.toasterService.error('Password cannot be changed for directory-authenticated accounts.');
+      return;
+    }
     this.dialog.open<ChangeUserPasswordComponent>(ChangeUserPasswordComponent, {
       panelClass: ['base-dialog-panel', 'change-user-password-dialog-panel', 'dialog-small-panel'],
       data: { user: this.user(), controller: this.controller, self_update: true },

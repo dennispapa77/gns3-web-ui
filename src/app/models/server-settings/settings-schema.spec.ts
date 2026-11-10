@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  OpenApiDocument,
-  extractSettingsSchemas,
-  enrichSettingsMetadata,
-} from './settings-schema';
+import { OpenApiDocument, extractSettingsSchemas, enrichSettingsMetadata } from './settings-schema';
 import { SETTINGS_METADATA } from './settings-metadata';
 
 // Shapes copied from a live /openapi.json: SettingsResponse points at section
@@ -35,6 +31,15 @@ describe('extractSettingsSchemas', () => {
     expect(schemas!['Controller']).toBeUndefined();
   });
 
+  it('includes LDAP section in compiled metadata', () => {
+    const ldap = SETTINGS_METADATA.find((s) => s.name === 'LDAP');
+    expect(ldap).toBeDefined();
+    expect(ldap!.label).toBe('LDAP / Directory');
+    expect(compiledField('LDAP', 'enabled').type).toBe('boolean');
+    expect(compiledField('LDAP', 'uri').defaultValue).toBe('ldap://localhost:389');
+    expect(compiledField('LDAP', 'bind_password').type).toBe('secret');
+  });
+
   it('returns null when the server has no SettingsResponse component', () => {
     expect(extractSettingsSchemas({ components: { schemas: {} } })).toBeNull();
     expect(extractSettingsSchemas({})).toBeNull();
@@ -62,7 +67,12 @@ describe('enrichSettingsMetadata', () => {
   it('adopts the schema description as the field hint', () => {
     const doc = openApiDoc({
       Server: {
-        port: { type: 'integer', maximum: 65535, exclusiveMinimum: 0, description: 'HTTP port used to control the server' },
+        port: {
+          type: 'integer',
+          maximum: 65535,
+          exclusiveMinimum: 0,
+          description: 'HTTP port used to control the server',
+        },
       },
     });
 

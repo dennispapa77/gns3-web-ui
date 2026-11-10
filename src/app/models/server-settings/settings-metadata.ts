@@ -81,7 +81,7 @@ function buildSection(
   name: ServerSettingsSectionName,
   label: string,
   icon: string,
-  groups: { id: string; label: string; summary?: string; fields: SettingsFieldDescriptor[] }[]
+  groups: { id: string; label: string; summary?: string; fields: SettingsFieldDescriptor[] }[],
 ): SettingsSectionMeta {
   return {
     name,
@@ -401,6 +401,76 @@ export const SETTINGS_METADATA: SettingsSectionMeta[] = [
       fields: [
         { key: 'default_admin_username', label: 'Username', type: 'string', width: 'half', defaultValue: 'admin' },
         { key: 'default_admin_password', label: 'Password', type: 'secret', width: 'half', defaultValue: 'admin' },
+      ],
+    },
+  ]),
+  buildSection('LDAP', 'LDAP / Directory', 'badge', [
+    {
+      id: 'general',
+      label: 'General',
+      summary: 'Enable central directory authentication via LDAP or Active Directory.',
+      fields: [
+        { key: 'enabled', label: 'Enable LDAP authentication', type: 'boolean', defaultValue: false },
+        {
+          key: 'uri',
+          label: 'Server URI',
+          type: 'string',
+          defaultValue: 'ldap://localhost:389',
+          width: 'two-thirds',
+        },
+        { key: 'timeout', label: 'Timeout (seconds)', type: 'int', min: 1, max: 120, defaultValue: 10, width: 'third' },
+      ],
+    },
+    {
+      id: 'bind',
+      label: 'Service Account & Base DN',
+      summary: 'Credentials used to search for user records in the directory.',
+      fields: [
+        { key: 'base_dn', label: 'User search base DN', type: 'string' },
+        { key: 'bind_dn', label: 'Bind DN', type: 'string', width: 'half' },
+        { key: 'bind_password', label: 'Bind password', type: 'secret', width: 'half' },
+      ],
+    },
+    {
+      id: 'search',
+      label: 'User & Group Search',
+      summary: 'Search filters and attribute names for directory user and group queries.',
+      fields: [
+        {
+          key: 'user_search_filter',
+          label: 'User search filter',
+          type: 'string',
+          defaultValue: '(&(objectClass=person)(|(uid={username})(sAMAccountName={username})))',
+        },
+        { key: 'user_attr_username', label: 'Username attribute', type: 'string', width: 'third', defaultValue: 'uid' },
+        { key: 'user_attr_email', label: 'Email attribute', type: 'string', width: 'third', defaultValue: 'mail' },
+        { key: 'user_attr_fullname', label: 'Full name attribute', type: 'string', width: 'third', defaultValue: 'cn' },
+        { key: 'group_search_base', label: 'Group search base DN', type: 'string', width: 'half' },
+        {
+          key: 'group_search_filter',
+          label: 'Group search filter',
+          type: 'string',
+          width: 'half',
+          defaultValue: '(&(objectClass=groupOfNames)(member={user_dn}))',
+        },
+        { key: 'default_group', label: 'Default GNS3 group', type: 'string', defaultValue: 'Users' },
+      ],
+    },
+    {
+      id: 'security',
+      label: 'Security & TLS',
+      summary: 'Connection encryption, certificate verification, and local fallback options.',
+      fields: [
+        { key: 'start_tls', label: 'Use StartTLS', type: 'boolean', width: 'third', defaultValue: false },
+        { key: 'verify_cert', label: 'Verify TLS certificate', type: 'boolean', width: 'third', defaultValue: true },
+        {
+          key: 'fallback_to_local',
+          label: 'Fallback to local database',
+          type: 'boolean',
+          width: 'third',
+          defaultValue: true,
+        },
+        { key: 'ca_cert_file', label: 'CA certificate file path', type: 'string' },
       ],
     },
   ]),

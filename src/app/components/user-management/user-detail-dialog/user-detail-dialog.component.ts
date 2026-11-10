@@ -88,13 +88,13 @@ export class UserDetailDialogComponent implements OnInit {
       username: new UntypedFormControl(
         this.user.username,
         [Validators.required, Validators.minLength(3), Validators.pattern('[a-zA-Z0-9_-]+$')],
-        [userNameAsyncValidator(this.controller, this.userService, this.user.username)]
+        [userNameAsyncValidator(this.controller, this.userService, this.user.username)],
       ),
       full_name: new UntypedFormControl(this.user.full_name),
       email: new UntypedFormControl(
         this.user.email,
         [Validators.email, Validators.required],
-        [userEmailAsyncValidator(this.controller, this.userService, this.user.email)]
+        [userEmailAsyncValidator(this.controller, this.userService, this.user.email)],
       ),
       is_active: new UntypedFormControl(this.user.is_active),
     });
@@ -183,6 +183,9 @@ export class UserDetailDialogComponent implements OnInit {
   }
 
   onChangePassword() {
+    if (this.user.auth_source === 'ldap') {
+      return;
+    }
     this.dialog.open(ChangeUserPasswordComponent, {
       panelClass: ['base-dialog-panel', 'change-user-password-dialog-panel', 'dialog-small-panel'],
       data: { user: this.user, controller: this.controller },
