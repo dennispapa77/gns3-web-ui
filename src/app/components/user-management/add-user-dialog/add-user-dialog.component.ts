@@ -84,14 +84,14 @@ export class AddUserDialogComponent implements OnInit {
       {
         username: new UntypedFormControl(
           null,
-          [Validators.required, Validators.minLength(3), Validators.pattern('[a-zA-Z0-9_-]+$')],
-          [userNameAsyncValidator(this.controller, this.userService)]
+          [Validators.required, Validators.minLength(3), Validators.pattern(/^[a-zA-Z0-9_.@-]+$/)],
+          [userNameAsyncValidator(this.controller, this.userService)],
         ),
         full_name: new UntypedFormControl(),
         email: new UntypedFormControl(
           null,
           [Validators.email, Validators.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/), Validators.required],
-          [userEmailAsyncValidator(this.controller, this.userService)]
+          [userEmailAsyncValidator(this.controller, this.userService)],
         ),
         password: new UntypedFormControl(null, [
           Validators.required,
@@ -107,14 +107,14 @@ export class AddUserDialogComponent implements OnInit {
       },
       {
         validators: [matchingPassword],
-      }
+      },
     );
     this.groupService.getGroups(this.controller).subscribe({
       next: (groups: Group[]) => {
         this.groups = groups;
         this.filteredGroups = this.autocompleteControl.valueChanges.pipe(
           startWith(''),
-          map((value) => this._filter(value))
+          map((value) => this._filter(value)),
         );
         this.cd.markForCheck();
       },
