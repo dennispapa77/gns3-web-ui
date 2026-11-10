@@ -194,7 +194,7 @@ describe('LoggedUserComponent', () => {
 
       expect(dialogSpy).not.toHaveBeenCalled();
       expect(mockToasterService.error).toHaveBeenCalledWith(
-        'Password cannot be changed for directory-authenticated accounts.'
+        'Password cannot be changed for directory-authenticated accounts.',
       );
     });
 

@@ -4,6 +4,8 @@ import { Observable, of } from 'rxjs';
 import { catchError, map, shareReplay } from 'rxjs/operators';
 import { Controller, ControllerProtocol } from '@models/controller';
 import {
+  LdapSection,
+  LdapTestResult,
   ServerSettings,
   ServerSettingsUpdate,
   ServerSettingsUpdateResponse,
@@ -29,15 +31,20 @@ export class ServerSettingsService {
     return this.httpController.get<ServerSettings>(controller, '/settings') as Observable<ServerSettings>;
   }
 
-  updateServerSettings(
-    controller: Controller,
-    update: ServerSettingsUpdate
-  ): Observable<ServerSettingsUpdateResponse> {
+  updateServerSettings(controller: Controller, update: ServerSettingsUpdate): Observable<ServerSettingsUpdateResponse> {
     return this.httpController.put<ServerSettingsUpdateResponse>(
       controller,
       '/settings',
-      update
+      update,
     ) as Observable<ServerSettingsUpdateResponse>;
+  }
+
+  testLdapConnection(controller: Controller, settingsUpdate?: Partial<LdapSection>): Observable<LdapTestResult> {
+    return this.httpController.post<LdapTestResult>(
+      controller,
+      '/settings/ldap/test',
+      settingsUpdate ?? {},
+    ) as Observable<LdapTestResult>;
   }
 
   // Best-effort metadata enrichment: the OpenAPI document lives at the
@@ -55,7 +62,7 @@ export class ServerSettingsService {
     const request = this.http.get<OpenApiDocument>(url).pipe(
       map((document) => extractSettingsSchemas(document)),
       catchError(() => of(null)),
-      shareReplay(1)
+      shareReplay(1),
     );
     this.schemaCache.set(controller.id, request);
     return request;

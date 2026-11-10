@@ -146,3 +146,12 @@ export interface SettingsUpdatedEvent {
   changed: string[];
   restart_required: string[];
 }
+
+export interface LdapTestResult {
+  status: 'success' | 'error';
+  bind_successful: boolean;
+  user_search_successful: boolean;
+  users_found: number;
+  latency_ms: number;
+  message: string;
+}

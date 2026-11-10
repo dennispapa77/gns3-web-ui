@@ -88,6 +88,7 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
   readonly isLoading = signal(true);
   readonly loadError = signal<string | null>(null);
   readonly isSaving = signal(false);
+  readonly isTestingLdap = signal(false);
   readonly activeSection = signal<ServerSettingsSectionName>('Server');
   readonly sectionSchemas = signal<SettingsSectionSchemas | null>(null);
   readonly formValues = signal<ServerSettings | null>(null);
@@ -150,10 +151,10 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
         section.groups.reduce(
           (total, group) =>
             total + group.fields.filter((field) => field.restartRequired && this.isFieldDirty(section, field)).length,
-          0
+          0,
         ),
-      0
-    )
+      0,
+    ),
   );
   readonly allGroupsExpanded = computed(() => {
     const section = this.activeSectionMeta();
@@ -177,7 +178,7 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
   sectionMatchCount(section: SettingsSectionMeta): number {
     return section.groups.reduce(
       (count, group) => count + group.fields.filter((field) => this.fieldMatches(section, field)).length,
-      0
+      0,
     );
   }
 
@@ -246,13 +247,13 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
         this.loadError.set('Failed to load the controller');
         this.isLoading.set(false);
         this.cd.markForCheck();
-      }
+      },
     );
 
     this.subscriptions.add(
       this.notificationService.serverSettingsNotificationEmitter.subscribe((notification) =>
-        this.onSettingsUpdated(notification.event)
-      )
+        this.onSettingsUpdated(notification.event),
+      ),
     );
     this.subscriptions.add(
       this.notificationService.wsReconnected.subscribe(() => {
@@ -261,7 +262,7 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
         if (!this.isDirty()) {
           this.refetchSettings(true);
         }
-      })
+      }),
     );
   }
 
@@ -307,7 +308,7 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
 
   resettableFields(section: SettingsSectionMeta, group: SettingsGroupMeta): SettingsFieldMeta[] {
     return group.fields.filter(
-      (field) => this.fieldMatches(section, field) && (this.canRevert(section, field) || field.type === 'secret')
+      (field) => this.fieldMatches(section, field) && (this.canRevert(section, field) || field.type === 'secret'),
     );
   }
 
@@ -400,7 +401,7 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
     this.setValue(
       section.name,
       field.key,
-      current.filter((entry) => entry !== item)
+      current.filter((entry) => entry !== item),
     );
   }
 
@@ -414,7 +415,7 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
       this.initialValues,
       form,
       this.pendingRemoves(),
-      this.secrets()
+      this.secrets(),
     );
     if (!Object.keys(payload).length) {
       return;
@@ -449,6 +450,34 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
     this.loadSettings();
   }
 
+  testLdapConnection(): void {
+    if (!this.controller) {
+      return;
+    }
+
+    const currentValues = this.formValues();
+    const ldapValues = currentValues ? currentValues.LDAP : undefined;
+
+    this.isTestingLdap.set(true);
+    this.serverSettingsService.testLdapConnection(this.controller, ldapValues).subscribe({
+      next: (result) => {
+        this.isTestingLdap.set(false);
+        if (result.status === 'success') {
+          this.toaster.success(result.message);
+        } else {
+          this.toaster.error(result.message);
+        }
+        this.cd.markForCheck();
+      },
+      error: (err) => {
+        this.isTestingLdap.set(false);
+        const msg = err.error?.message || err.message || 'LDAP connection test failed';
+        this.toaster.error(msg);
+        this.cd.markForCheck();
+      },
+    });
+  }
+
   private loadSettings() {
     if (!this.controller) {
       return;
@@ -479,7 +508,7 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
       this.serverSettingsService.getSettingsSchemas(this.controller).subscribe((schemas) => {
         this.sectionSchemas.set(schemas);
         this.cd.markForCheck();
-      })
+      }),
     );
   }
 
@@ -513,7 +542,7 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
     if (this.isDirty()) {
       this.externalChange.set(true);
       this.toaster.warning(
-        'Server settings were changed by another session. Review your unsaved changes before saving.'
+        'Server settings were changed by another session. Review your unsaved changes before saving.',
       );
     } else {
       if (event.restart_required.length && !this.restartBanner()) {
