@@ -61,6 +61,34 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     defaultTemperature: 0.3,
   },
   {
+    id: 'anthropic',
+    label: 'Anthropic (Claude)',
+    provider: 'anthropic',
+    baseUrl: '',
+    models: ['claude-3-7-sonnet-latest', 'claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-opus-latest'],
+    defaultTemperature: 0.3,
+    modelContextLimits: {
+      'claude-3-7-sonnet-latest': 200,
+      'claude-3-5-sonnet-latest': 200,
+      'claude-3-5-haiku-latest': 200,
+      'claude-3-opus-latest': 200,
+    },
+  },
+  {
+    id: 'openai',
+    label: 'OpenAI',
+    provider: 'openai',
+    baseUrl: 'https://api.openai.com/v1',
+    models: ['gpt-4o', 'gpt-4o-mini', 'o1', 'o3-mini'],
+    defaultTemperature: 0.3,
+    modelContextLimits: {
+      'gpt-4o': 128,
+      'gpt-4o-mini': 128,
+      o1: 200,
+      'o3-mini': 200,
+    },
+  },
+  {
     id: 'openrouter',
     label: 'OpenRouter',
     provider: 'openai',
@@ -196,7 +224,7 @@ export class AiProfileDialogComponent implements OnInit {
     private dialogRef: MatDialogRef<AiProfileDialogComponent>,
     private dialog: MatDialog,
     private cd: ChangeDetectorRef,
-    @Inject(MAT_DIALOG_DATA) public data: ConfigDialogData
+    @Inject(MAT_DIALOG_DATA) public data: ConfigDialogData,
   ) {
     this.mode = data.mode;
     this.existingNames = data.existingNames;
@@ -232,7 +260,7 @@ export class AiProfileDialogComponent implements OnInit {
 
       // Extract custom fields (non-standard fields from config object)
       const customFieldEntries = Object.entries(config.config).filter(
-        ([key]) => !STANDARD_FIELDS.includes(key) && key !== 'max_tokens'
+        ([key]) => !STANDARD_FIELDS.includes(key) && key !== 'max_tokens',
       );
 
       // Clear existing and add custom fields to FormArray
@@ -291,6 +319,47 @@ export class AiProfileDialogComponent implements OnInit {
     };
   }
 
+  get apiKeyPlaceholder(): string {
+    if (this.mode === 'edit') {
+      return 'Leave empty to keep existing key';
+    }
+    const presetId = this.selectedPresetId;
+    const provider = this.form?.get('provider')?.value;
+
+    if (presetId === 'openrouter') {
+      return 'sk-or-v1-... (from openrouter.ai)';
+    }
+    if (provider === 'anthropic' || presetId === 'anthropic') {
+      return 'sk-ant-api03-... (from platform.claude.com)';
+    }
+    if (provider === 'openai' || presetId === 'openai') {
+      return 'sk-proj-... (from platform.openai.com)';
+    }
+    if (provider === 'deepseek' || presetId === 'deepseek') {
+      return 'sk-... (from platform.deepseek.com)';
+    }
+    return 'Enter API Key';
+  }
+
+  get apiKeyHint(): string {
+    const presetId = this.selectedPresetId;
+    const provider = this.form?.get('provider')?.value;
+
+    if (presetId === 'openrouter') {
+      return 'OpenRouter API key required (starts with sk-or-) from openrouter.ai';
+    }
+    if (provider === 'anthropic' || presetId === 'anthropic') {
+      return 'Anthropic API key required (starts with sk-ant-) from platform.claude.com';
+    }
+    if (provider === 'openai' || presetId === 'openai') {
+      return 'OpenAI API key required (starts with sk-) from platform.openai.com';
+    }
+    if (provider === 'deepseek' || presetId === 'deepseek') {
+      return 'DeepSeek API key required from platform.deepseek.com';
+    }
+    return 'API key will be encrypted on the server. Minimum length: 10 characters';
+  }
+
   /**
    * Detect preset from existing config values
    */
@@ -300,7 +369,10 @@ export class AiProfileDialogComponent implements OnInit {
 
     // Find matching preset
     const matchingPreset = this.providerPresets.find(
-      (preset) => preset.id !== 'custom' && preset.provider === provider && preset.baseUrl === baseUrl
+      (preset) =>
+        preset.id !== 'custom' &&
+        preset.provider === provider &&
+        (preset.baseUrl === baseUrl || (!preset.baseUrl && !baseUrl)),
     );
 
     if (matchingPreset) {
