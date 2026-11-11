@@ -89,6 +89,33 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     },
   },
   {
+    id: 'google_genai',
+    label: 'Google (Gemini)',
+    provider: 'google_genai',
+    baseUrl: '',
+    models: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
+    defaultTemperature: 0.3,
+    modelContextLimits: {
+      'gemini-2.5-flash': 1000,
+      'gemini-2.5-pro': 1000,
+      'gemini-2.0-flash': 1000,
+    },
+  },
+  {
+    id: 'ollama',
+    label: 'Ollama (Local / Air-Gapped)',
+    provider: 'ollama',
+    baseUrl: 'http://localhost:11434',
+    models: ['llama3.3', 'qwen2.5-coder', 'mistral', 'deepseek-r1'],
+    defaultTemperature: 0.3,
+    modelContextLimits: {
+      'llama3.3': 128,
+      'qwen2.5-coder': 128,
+      mistral: 32,
+      'deepseek-r1': 128,
+    },
+  },
+  {
     id: 'openrouter',
     label: 'OpenRouter',
     provider: 'openai',
@@ -326,6 +353,12 @@ export class AiProfileDialogComponent implements OnInit {
     const presetId = this.selectedPresetId;
     const provider = this.form?.get('provider')?.value;
 
+    if (presetId === 'ollama' || provider === 'ollama') {
+      return 'Optional (not required for local Ollama)';
+    }
+    if (presetId === 'google_genai' || provider === 'google_genai') {
+      return 'AIzaSy... (from aistudio.google.com)';
+    }
     if (presetId === 'openrouter') {
       return 'sk-or-v1-... (from openrouter.ai)';
     }
@@ -345,6 +378,12 @@ export class AiProfileDialogComponent implements OnInit {
     const presetId = this.selectedPresetId;
     const provider = this.form?.get('provider')?.value;
 
+    if (presetId === 'ollama' || provider === 'ollama') {
+      return 'Ollama runs locally at http://localhost:11434 and does not require an API key.';
+    }
+    if (presetId === 'google_genai' || provider === 'google_genai') {
+      return 'Google Gemini API key required from aistudio.google.com';
+    }
     if (presetId === 'openrouter') {
       return 'OpenRouter API key required (starts with sk-or-) from openrouter.ai';
     }
@@ -397,6 +436,15 @@ export class AiProfileDialogComponent implements OnInit {
   onPresetChange(presetId: string): void {
     this.selectedPresetId = presetId;
     this.selectedPreset = this.providerPresets.find((p) => p.id === presetId) || null;
+
+    const apiKeyControl = this.form.get('api_key');
+    if (presetId === 'ollama') {
+      apiKeyControl?.clearValidators();
+      apiKeyControl?.updateValueAndValidity();
+    } else if (this.mode === 'create') {
+      apiKeyControl?.setValidators([Validators.required, Validators.minLength(10)]);
+      apiKeyControl?.updateValueAndValidity();
+    }
 
     if (this.selectedPreset && presetId !== 'custom') {
       // Auto-fill configuration from preset

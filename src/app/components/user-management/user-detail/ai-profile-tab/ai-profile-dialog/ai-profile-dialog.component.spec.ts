@@ -38,7 +38,7 @@ describe('AiProfileDialogComponent', () => {
   });
 
   describe('PROVIDER_PRESETS', () => {
-    it('should include native anthropic and openai presets (Issue #2936)', () => {
+    it('should include native anthropic, openai, google_genai, and ollama presets (Issue #2936)', () => {
       const anthropic = PROVIDER_PRESETS.find((p) => p.id === 'anthropic');
       expect(anthropic).toBeDefined();
       expect(anthropic?.provider).toBe('anthropic');
@@ -50,6 +50,18 @@ describe('AiProfileDialogComponent', () => {
       expect(openai?.provider).toBe('openai');
       expect(openai?.baseUrl).toBe('https://api.openai.com/v1');
       expect(openai?.models).toContain('gpt-4o');
+
+      const google = PROVIDER_PRESETS.find((p) => p.id === 'google_genai');
+      expect(google).toBeDefined();
+      expect(google?.provider).toBe('google_genai');
+      expect(google?.baseUrl).toBe('');
+      expect(google?.models).toContain('gemini-2.5-flash');
+
+      const ollama = PROVIDER_PRESETS.find((p) => p.id === 'ollama');
+      expect(ollama).toBeDefined();
+      expect(ollama?.provider).toBe('ollama');
+      expect(ollama?.baseUrl).toBe('http://localhost:11434');
+      expect(ollama?.models).toContain('llama3.3');
     });
   });
 
@@ -72,6 +84,31 @@ describe('AiProfileDialogComponent', () => {
       expect(component.form.get('model')?.value).toBe('gpt-4o');
       expect(component.apiKeyPlaceholder).toContain('platform.openai.com');
       expect(component.apiKeyHint).toContain('sk-');
+    });
+
+    it('should configure form correctly when selecting google_genai preset', () => {
+      component.onPresetChange('google_genai');
+
+      expect(component.form.get('provider')?.value).toBe('google_genai');
+      expect(component.form.get('base_url')?.value).toBe('');
+      expect(component.form.get('model')?.value).toBe('gemini-2.5-flash');
+      expect(component.apiKeyPlaceholder).toContain('aistudio.google.com');
+      expect(component.apiKeyHint).toContain('aistudio.google.com');
+    });
+
+    it('should configure form correctly when selecting ollama preset and make apiKey optional', () => {
+      component.onPresetChange('ollama');
+
+      expect(component.form.get('provider')?.value).toBe('ollama');
+      expect(component.form.get('base_url')?.value).toBe('http://localhost:11434');
+      expect(component.form.get('model')?.value).toBe('llama3.3');
+      expect(component.apiKeyPlaceholder).toContain('not required');
+      expect(component.apiKeyHint).toContain('does not require an API key');
+
+      // Verify api_key is valid even when empty
+      const apiKeyControl = component.form.get('api_key');
+      apiKeyControl?.setValue('');
+      expect(apiKeyControl?.valid).toBe(true);
     });
 
     it('should configure form correctly when selecting openrouter preset', () => {
