@@ -254,7 +254,7 @@ describe('SETTINGS_METADATA integrity', () => {
     }
   });
 
-  it('should provide options for every enum field and cover 86 writable fields', () => {
+  it('should provide options for every enum field and cover 69 writable fields', () => {
     let count = 0;
     for (const section of SETTINGS_METADATA) {
       for (const field of section.groups.flatMap((group) => group.fields)) {
@@ -265,6 +265,6 @@ describe('SETTINGS_METADATA integrity', () => {
         }
       }
     }
-    expect(count).toBe(86);
+    expect(count).toBe(69);
   });
 });

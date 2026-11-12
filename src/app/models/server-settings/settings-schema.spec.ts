@@ -31,15 +31,6 @@ describe('extractSettingsSchemas', () => {
     expect(schemas!['Controller']).toBeUndefined();
   });
 
-  it('includes LDAP section in compiled metadata', () => {
-    const ldap = SETTINGS_METADATA.find((s) => s.name === 'LDAP');
-    expect(ldap).toBeDefined();
-    expect(ldap!.label).toBe('LDAP / Directory');
-    expect(compiledField('LDAP', 'enabled').type).toBe('boolean');
-    expect(compiledField('LDAP', 'uri').defaultValue).toBe('ldap://localhost:389');
-    expect(compiledField('LDAP', 'bind_password').type).toBe('secret');
-  });
-
   it('returns null when the server has no SettingsResponse component', () => {
     expect(extractSettingsSchemas({ components: { schemas: {} } })).toBeNull();
     expect(extractSettingsSchemas({})).toBeNull();

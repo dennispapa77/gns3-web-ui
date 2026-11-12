@@ -166,34 +166,6 @@
               [attr.aria-label]="section.label"
             >
               <div>
-                @if (section.name === 'LDAP') {
-                  <div class="server-settings__actions-banner">
-                    <div>
-                      <strong>LDAP Connection Test</strong>
-                      <div class="server-settings__actions-banner-desc">
-                        Verify connectivity, bind credentials, and user search against current or edited settings.
-                      </div>
-                    </div>
-                    <button
-                      mat-stroked-button
-                      type="button"
-                      [disabled]="isTestingLdap()"
-                      (click)="testLdapConnection()"
-                    >
-                      @if (isTestingLdap()) {
-                        <mat-progress-spinner
-                          diameter="16"
-                          mode="indeterminate"
-                          class="server-settings__actions-spinner"
-                        ></mat-progress-spinner>
-                        Testing...
-                      } @else {
-                        <mat-icon>network_check</mat-icon>
-                        Test connection
-                      }
-                    </button>
-                  </div>
-                }
                 @for (group of section.groups; track group.id) {
                   <section class="server-settings__group" [hidden]="!groupMatches(group, section)">
                     @let resetFields = resettableFields(section, group);

@@ -17,7 +17,9 @@ import {
 } from '@models/server-settings/settings-schema';
 import { HttpController } from './http-controller.service';
 
-@Injectable()
+@Injectable({
+  providedIn: 'root',
+})
 export class ServerSettingsService {
   private http = inject(HttpClient);
 
