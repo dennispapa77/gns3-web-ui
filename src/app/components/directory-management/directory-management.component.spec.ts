@@ -9,6 +9,7 @@
  * or see the "LICENSE" file for more details.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -19,7 +20,13 @@ import { ControllerService } from '@services/controller.service';
 import { GroupService } from '@services/group.service';
 import { ServerSettingsService } from '@services/server-settings.service';
 import { ToasterService } from '@services/toaster.service';
-import { DirectoryManagementComponent } from './directory-management.component';
+import { UserService } from '@services/user.service';
+import {
+  DirectoryManagementComponent,
+  isValidHostOrIp,
+  isValidPort,
+  isValidTimeout,
+} from './directory-management.component';
 
 describe('DirectoryManagementComponent', () => {
   let component: DirectoryManagementComponent;
@@ -29,6 +36,7 @@ describe('DirectoryManagementComponent', () => {
   let mockGroupService: any;
   let mockToasterService: any;
   let mockActivatedRoute: any;
+  let mockDialog: any;
 
   const mockController: Controller = {
     id: 1,
@@ -125,6 +133,12 @@ describe('DirectoryManagementComponent', () => {
       info: vi.fn(),
     };
 
+    mockDialog = {
+      open: vi.fn().mockReturnValue({
+        afterClosed: vi.fn().mockReturnValue(of(true)),
+      }),
+    };
+
     mockActivatedRoute = {
       snapshot: {
         paramMap: {
@@ -148,11 +162,14 @@ describe('DirectoryManagementComponent', () => {
         { provide: ServerSettingsService, useValue: mockServerSettingsService },
         { provide: GroupService, useValue: mockGroupService },
         { provide: ToasterService, useValue: mockToasterService },
+        { provide: MatDialog, useValue: mockDialog },
+        { provide: UserService, useValue: { list: vi.fn().mockReturnValue(of([])) } },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DirectoryManagementComponent);
     component = fixture.componentInstance;
+    component['dialog'] = mockDialog;
     fixture.detectChanges();
   });
 
@@ -338,9 +355,7 @@ describe('DirectoryManagementComponent', () => {
           user_search_filter: component.generatedFilter,
         }),
       );
-      expect(mockToasterService.success).toHaveBeenCalledWith(
-        'Successfully connected to LDAP server in 12.5ms. Found 42 sample user(s) in base DN.',
-      );
+      expect(mockToasterService.success).toHaveBeenCalledWith('Directory server bind successful');
       expect(component.isTesting()).toBe(false);
     });
 
@@ -408,11 +423,11 @@ describe('DirectoryManagementComponent', () => {
       const payloadUnchanged = component.buildLdapPayload();
       expect(payloadUnchanged.bind_password).toBeUndefined();
 
-      component.bindPassword = 'NewSecretPassword123';
+      component.bindPassword = 'placeholder_password';
       component.onPasswordInput();
 
       const payloadChanged = component.buildLdapPayload();
-      expect(payloadChanged.bind_password).toBe('NewSecretPassword123');
+      expect(payloadChanged.bind_password).toBe('placeholder_password');
     });
 
     it('should discard edits and revert to initial settings', () => {
@@ -421,6 +436,214 @@ describe('DirectoryManagementComponent', () => {
 
       expect(component.serverHost).toBe('dc1.example.com');
       expect(mockToasterService.info).toHaveBeenCalledWith('Changes discarded');
+    });
+  });
+
+  describe('Add Group on the Fly', () => {
+    it('should open AddGroupDialog and auto-select new group in row', () => {
+      const row = component.groupMappings[0];
+      mockGroupService.getGroups.mockReturnValue(
+        of([
+          ...mockGroups,
+          {
+            name: 'Security-Auditors',
+            user_group_id: 'grp-4',
+            created_at: '2026-01-01',
+            updated_at: '2026-01-01',
+            is_builtin: false,
+          },
+        ]),
+      );
+
+      component.openAddGroupDialog(row);
+
+      expect(mockDialog.open).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          data: { controller: mockController },
+        }),
+      );
+      expect(row.targetGroup).toBe('Security-Auditors');
+    });
+
+    it('should open AddGroupDialog and auto-select new default fallback group', () => {
+      mockGroupService.getGroups.mockReturnValue(
+        of([
+          ...mockGroups,
+          {
+            name: 'Default-Staff',
+            user_group_id: 'grp-5',
+            created_at: '2026-01-01',
+            updated_at: '2026-01-01',
+            is_builtin: false,
+          },
+        ]),
+      );
+
+      component.openAddGroupDialogForDefault();
+
+      expect(mockDialog.open).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          data: { controller: mockController },
+        }),
+      );
+      expect(component.ldapSettings.default_group).toBe('Default-Staff');
+    });
+
+    it('should handle onTargetGroupSelect with regular group', () => {
+      const row = component.groupMappings[0];
+      const event: any = { value: 'Users', source: { value: 'Users' } };
+      component.onTargetGroupSelect(event, row);
+      expect(row.targetGroup).toBe('Users');
+    });
+
+    it('should intercept onTargetGroupSelect with __ADD_NEW_GROUP__ and open dialog', () => {
+      const row = component.groupMappings[0];
+      const event: any = { value: '__ADD_NEW_GROUP__', source: { value: '__ADD_NEW_GROUP__' } };
+      component.onTargetGroupSelect(event, row);
+      expect(event.source.value).toBe(row.targetGroup);
+      expect(mockDialog.open).toHaveBeenCalled();
+    });
+
+    it('should handle onDefaultGroupSelect with regular group', () => {
+      const event: any = { value: 'Guests', source: { value: 'Guests' } };
+      component.onDefaultGroupSelect(event);
+      expect(component.ldapSettings.default_group).toBe('Guests');
+    });
+
+    it('should intercept onDefaultGroupSelect with __ADD_NEW_GROUP__ and open dialog', () => {
+      const event: any = { value: '__ADD_NEW_GROUP__', source: { value: '__ADD_NEW_GROUP__' } };
+      component.onDefaultGroupSelect(event);
+      expect(event.source.value).toBe(component.ldapSettings.default_group);
+      expect(mockDialog.open).toHaveBeenCalled();
+    });
+  });
+
+  describe('Input Validation Suite', () => {
+    it('should validate hostnames and FQDNs', () => {
+      expect(isValidHostOrIp('dc1.example.com')).toBe(true);
+      expect(isValidHostOrIp('ldap.corp.internal')).toBe(true);
+      expect(isValidHostOrIp('ad-server')).toBe(true);
+      expect(isValidHostOrIp('localhost')).toBe(true);
+      expect(isValidHostOrIp('')).toBe(false);
+      expect(isValidHostOrIp('   ')).toBe(false);
+      expect(isValidHostOrIp('invalid..host')).toBe(false);
+    });
+
+    it('should validate IPv4 addresses', () => {
+      expect(isValidHostOrIp('192.168.1.1')).toBe(true);
+      expect(isValidHostOrIp('10.0.0.254')).toBe(true);
+      expect(isValidHostOrIp('172.16.0.1')).toBe(true);
+      expect(isValidHostOrIp('999.999.999.999')).toBe(false);
+      expect(isValidHostOrIp('192.168.1')).toBe(false);
+    });
+
+    it('should validate IPv6 addresses', () => {
+      expect(isValidHostOrIp('::1')).toBe(true);
+      expect(isValidHostOrIp('[::1]')).toBe(true);
+      expect(isValidHostOrIp('2001:db8::1')).toBe(true);
+      expect(isValidHostOrIp('[2001:db8::1]')).toBe(true);
+      expect(isValidHostOrIp('2001:db8:85a3:0000:0000:8a2e:0370:7334')).toBe(true);
+      expect(isValidHostOrIp('12345::1')).toBe(false);
+    });
+
+    it('should validate port numbers (1-65535)', () => {
+      expect(isValidPort(1)).toBe(true);
+      expect(isValidPort(389)).toBe(true);
+      expect(isValidPort(636)).toBe(true);
+      expect(isValidPort(65535)).toBe(true);
+      expect(isValidPort(0)).toBe(false);
+      expect(isValidPort(-1)).toBe(false);
+      expect(isValidPort(65536)).toBe(false);
+      expect(isValidPort('636')).toBe(true);
+      expect(isValidPort('invalid')).toBe(false);
+      expect(isValidPort(null)).toBe(false);
+    });
+
+    it('should validate timeout range (1-120 seconds)', () => {
+      expect(isValidTimeout(1)).toBe(true);
+      expect(isValidTimeout(10)).toBe(true);
+      expect(isValidTimeout(120)).toBe(true);
+      expect(isValidTimeout(0)).toBe(false);
+      expect(isValidTimeout(-1)).toBe(false);
+      expect(isValidTimeout(121)).toBe(false);
+      expect(isValidTimeout('15')).toBe(true);
+      expect(isValidTimeout('abc')).toBe(false);
+    });
+
+    it('should check isFormValid and block saving if invalid', () => {
+      component.serverHost = 'valid.example.com';
+      component.serverPort = 636;
+      component.ldapSettings.timeout = 10;
+      expect(component.isFormValid()).toBe(true);
+
+      component.serverHost = '';
+      expect(component.isFormValid()).toBe(false);
+      component.save();
+      expect(mockServerSettingsService.updateServerSettings).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Auto-Save & Fallback Flexibility', () => {
+    it('should auto-save on onFieldBlur when form is valid', () => {
+      const saveSpy = vi.spyOn(component, 'save');
+      component.serverHost = 'dc.example.com';
+      component.serverPort = 636;
+      component.ldapSettings.timeout = 10;
+      component.onFieldBlur();
+      expect(saveSpy).toHaveBeenCalledWith(true);
+    });
+
+    it('should auto-save on onFieldChange when form is valid', () => {
+      const saveSpy = vi.spyOn(component, 'save');
+      component.serverHost = 'dc.example.com';
+      component.serverPort = 636;
+      component.ldapSettings.timeout = 10;
+      component.onFieldChange();
+      expect(saveSpy).toHaveBeenCalledWith(true);
+    });
+
+    it('should allow default_group to be empty string for none/-', () => {
+      const event: any = { value: '', source: { value: '' } };
+      component.onDefaultGroupSelect(event);
+      expect(component.ldapSettings.default_group).toBe('');
+      const payload = component.buildLdapPayload();
+      expect(payload.default_group).toBe('');
+    });
+
+    it('should auto-save when onToggleEnabled is called', () => {
+      const saveSpy = vi.spyOn(component, 'save');
+      component.ldapSettings.enabled = false;
+      component.onToggleEnabled();
+      expect(saveSpy).toHaveBeenCalledWith(true);
+    });
+
+    it('should allow saving when ldapSettings.enabled is false even if host is invalid', () => {
+      component.ldapSettings.enabled = false;
+      component.serverHost = 'invalid..host';
+      expect(component.isFormValid()).toBe(true);
+    });
+  });
+
+  describe('HostErrorStateMatcher', () => {
+    it('should return true when control is dirty or touched and host is invalid', () => {
+      component.serverHost = 'invalid..host';
+      const matcher = component.hostErrorStateMatcher;
+      expect(matcher.isErrorState({ touched: true } as any, null)).toBe(true);
+      expect(matcher.isErrorState({ dirty: true } as any, null)).toBe(true);
+    });
+
+    it('should return false when host is valid', () => {
+      component.serverHost = 'dc1.example.com';
+      const matcher = component.hostErrorStateMatcher;
+      expect(matcher.isErrorState({ touched: true } as any, null)).toBe(false);
+    });
+
+    it('should return false when control is untouched and pristine', () => {
+      component.serverHost = 'invalid..host';
+      const matcher = component.hostErrorStateMatcher;
+      expect(matcher.isErrorState({ touched: false, dirty: false } as any, null)).toBe(false);
     });
   });
 });

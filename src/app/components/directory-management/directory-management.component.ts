@@ -17,15 +17,19 @@ import { catchError } from 'rxjs/operators';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { ErrorStateMatcher } from '@angular/material/core';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
-import { MatSelectModule } from '@angular/material/select';
+import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { AddGroupDialogComponent } from '@components/group-management/add-group-dialog/add-group-dialog.component';
 import { Controller } from '@models/controller';
 import { Group } from '@models/groups/group';
 import { LdapSection } from '@models/server-settings/server-settings';
@@ -39,6 +43,63 @@ export type DirectoryType = 'active_directory' | 'openldap' | 'custom';
 export interface GroupMappingRow {
   directoryGroup: string;
   targetGroup: string;
+}
+
+export function isValidHostOrIp(value: string | null | undefined): boolean {
+  if (!value || !value.trim()) {
+    return false;
+  }
+  const clean = value.trim().replace(/^ldaps?:\/\//, '');
+  if (!clean) {
+    return false;
+  }
+
+  // If value consists of numbers separated by dots (looks like an IPv4)
+  if (/^(\d+\.){3}\d+$/.test(clean)) {
+    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipv4Regex.test(clean);
+  }
+
+  const rawIpv6 = clean.replace(/^\[/, '').replace(/\]$/, '');
+  const ipv6Regex =
+    /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$|^(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}$|^(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}$|^(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}$|^[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}$|^:(?::[0-9a-fA-F]{1,4}){1,7}$|^::$|^fe80:(?::[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]+$/;
+  if (ipv6Regex.test(rawIpv6)) {
+    return true;
+  }
+
+  // RFC 1123: Dotted domain names must not end with an all-numeric TLD
+  if (clean.includes('.') && /^\d+$/.test(clean.split('.').pop() || '')) {
+    return false;
+  }
+
+  const fqdnRegex =
+    /^(?=.{1,253}$)(?:[a-zA-Z0-9](?:[a-zA-Z0-9-_]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-_]{0,61}[a-zA-Z0-9])?$/;
+  return fqdnRegex.test(clean);
+}
+
+export function isValidPort(port: number | string | null | undefined): boolean {
+  if (port === null || port === undefined || port === '') {
+    return false;
+  }
+  const num = typeof port === 'number' ? port : Number(port);
+  return Number.isInteger(num) && num >= 1 && num <= 65535;
+}
+
+export function isValidTimeout(timeout: number | string | null | undefined): boolean {
+  if (timeout === null || timeout === undefined || timeout === '') {
+    return false;
+  }
+  const num = typeof timeout === 'number' ? timeout : Number(timeout);
+  return Number.isInteger(num) && num >= 1 && num <= 120;
+}
+
+export class HostErrorStateMatcher implements ErrorStateMatcher {
+  constructor(private isHostValidFn: () => boolean) {}
+
+  isErrorState(control: any | null, form: any | null): boolean {
+    const isSubmitted = form && form.submitted;
+    return !!(control && (control.touched || control.dirty || isSubmitted) && !this.isHostValidFn());
+  }
 }
 
 export const DEFAULT_LDAP_SETTINGS: LdapSection = {
@@ -75,6 +136,8 @@ export const DEFAULT_LDAP_SETTINGS: LdapSection = {
     MatButtonModule,
     MatCardModule,
     MatCheckboxModule,
+    MatDialogModule,
+    MatDividerModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -92,6 +155,7 @@ export class DirectoryManagementComponent implements OnInit {
   private serverSettingsService = inject(ServerSettingsService);
   private groupService = inject(GroupService);
   private toasterService = inject(ToasterService);
+  private dialog = inject(MatDialog);
   public cd = inject(ChangeDetectorRef);
 
   readonly isLoading = signal(true);
@@ -107,6 +171,7 @@ export class DirectoryManagementComponent implements OnInit {
   serverHost = 'localhost';
   serverPort = 636;
   useLdaps = true;
+  readonly hostErrorStateMatcher = new HostErrorStateMatcher(() => this.isHostValid());
 
   directoryType: DirectoryType = 'active_directory';
   allowShortUsername = true;
@@ -231,8 +296,43 @@ export class DirectoryManagementComponent implements OnInit {
       targetGroup,
     }));
 
-    if (!this.ldapSettings.default_group) {
-      this.ldapSettings.default_group = this.availableGroups[0]?.name || 'Users';
+    if (this.ldapSettings.default_group === undefined || this.ldapSettings.default_group === null) {
+      this.ldapSettings.default_group = '';
+    }
+  }
+
+  isHostValid(): boolean {
+    return isValidHostOrIp(this.serverHost);
+  }
+
+  isPortValid(): boolean {
+    return isValidPort(this.serverPort);
+  }
+
+  isTimeoutValid(): boolean {
+    return isValidTimeout(this.ldapSettings.timeout);
+  }
+
+  isFormValid(): boolean {
+    if (!this.ldapSettings.enabled) {
+      return true;
+    }
+    return this.isHostValid() && this.isPortValid() && this.isTimeoutValid();
+  }
+
+  onToggleEnabled(): void {
+    this.save(true);
+  }
+
+  onFieldBlur(): void {
+    if (this.isFormValid() && !this.isLoading() && !this.isSaving()) {
+      this.save(true);
+    }
+  }
+
+  onFieldChange(): void {
+    if (this.isFormValid() && !this.isLoading() && !this.isSaving()) {
+      this.save(true);
     }
   }
 
@@ -363,6 +463,96 @@ export class DirectoryManagementComponent implements OnInit {
     this.cd.markForCheck();
   }
 
+  onTargetGroupSelect(event: MatSelectChange, row: GroupMappingRow): void {
+    if (event.value === '__ADD_NEW_GROUP__') {
+      event.source.value = row.targetGroup;
+      this.openAddGroupDialog(row);
+    } else {
+      row.targetGroup = event.value;
+    }
+    this.cd.markForCheck();
+  }
+
+  onDefaultGroupSelect(event: MatSelectChange): void {
+    if (event.value === '__ADD_NEW_GROUP__') {
+      event.source.value = this.ldapSettings.default_group;
+      this.openAddGroupDialogForDefault();
+    } else {
+      this.ldapSettings.default_group = event.value;
+    }
+    this.cd.markForCheck();
+  }
+
+  openAddGroupDialog(row?: GroupMappingRow): void {
+    if (!this.controller) {
+      return;
+    }
+    const previousGroups = new Set(this.availableGroups.map((g) => g.name));
+
+    this.dialog
+      .open(AddGroupDialogComponent, {
+        panelClass: ['base-dialog-panel', 'dialog-small-panel'],
+        autoFocus: false,
+        disableClose: true,
+        data: { controller: this.controller },
+      })
+      .afterClosed()
+      .subscribe((added: boolean) => {
+        if (added && this.controller) {
+          this.groupService.getGroups(this.controller).subscribe({
+            next: (groups: Group[]) => {
+              this.availableGroups = groups || [];
+              const newlyAdded = this.availableGroups.find((g) => !previousGroups.has(g.name));
+              if (newlyAdded && row) {
+                row.targetGroup = newlyAdded.name;
+              }
+              this.cd.markForCheck();
+            },
+            error: (err) => {
+              const msg = err.error?.message || err.message || 'Failed to refresh groups';
+              this.toasterService.error(msg);
+              this.cd.markForCheck();
+            },
+          });
+        }
+      });
+  }
+
+  openAddGroupDialogForDefault(): void {
+    if (!this.controller) {
+      return;
+    }
+    const previousGroups = new Set(this.availableGroups.map((g) => g.name));
+
+    this.dialog
+      .open(AddGroupDialogComponent, {
+        panelClass: ['base-dialog-panel', 'dialog-small-panel'],
+        autoFocus: false,
+        disableClose: true,
+        data: { controller: this.controller },
+      })
+      .afterClosed()
+      .subscribe((added: boolean) => {
+        if (added && this.controller) {
+          this.groupService.getGroups(this.controller).subscribe({
+            next: (groups: Group[]) => {
+              this.availableGroups = groups || [];
+              const newlyAdded = this.availableGroups.find((g) => !previousGroups.has(g.name));
+              if (newlyAdded) {
+                this.ldapSettings.default_group = newlyAdded.name;
+              }
+              this.cd.markForCheck();
+            },
+            error: (err) => {
+              const msg = err.error?.message || err.message || 'Failed to refresh groups';
+              this.toasterService.error(msg);
+              this.cd.markForCheck();
+            },
+          });
+        }
+      });
+  }
+
   discardChanges(): void {
     if (this.initialSettings) {
       this.initForm(this.initialSettings);
@@ -395,7 +585,7 @@ export class DirectoryManagementComponent implements OnInit {
       group_search_base: this.ldapSettings.base_dn.trim(),
       group_search_filter: this.ldapSettings.group_search_filter,
       group_mapping: mapping,
-      default_group: this.ldapSettings.default_group || 'Users',
+      default_group: this.ldapSettings.default_group ?? '',
       start_tls: this.ldapSettings.start_tls,
       verify_cert: this.ldapSettings.verify_cert,
       ca_cert_file: this.ldapSettings.ca_cert_file?.trim() || null,
@@ -410,8 +600,8 @@ export class DirectoryManagementComponent implements OnInit {
     return payload;
   }
 
-  save(): void {
-    if (!this.controller) {
+  save(isAutoSave = false): void {
+    if (!this.controller || !this.isFormValid()) {
       return;
     }
     this.isSaving.set(true);
@@ -442,7 +632,7 @@ export class DirectoryManagementComponent implements OnInit {
       next: (result) => {
         this.isTesting.set(false);
         if (result.status === 'success') {
-          this.toasterService.success(result.message);
+          this.toasterService.success('Directory server bind successful');
         } else {
           this.toasterService.error(result.message);
         }

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Inject, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Inject, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 import { RouterModule } from '@angular/router';
@@ -10,9 +10,11 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatCardModule } from '@angular/material/card';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Group } from '@models/groups/group';
 import { UserService } from '@services/user.service';
 import { ToasterService } from '@services/toaster.service';
+import { ServerSettingsService } from '@services/server-settings.service';
 import { User } from '@models/users/user';
 import { Controller } from '@models/controller';
 import { ACE, ACEDetailed } from '@models/api/ACE';
@@ -48,6 +50,7 @@ export interface UserDetailDialogData {
     MatInputModule,
     MatCheckboxModule,
     MatCardModule,
+    MatTooltipModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -58,7 +61,10 @@ export class UserDetailDialogComponent implements OnInit {
   private aclService = inject(AclService);
   private roleService = inject(RoleService);
   private dialog = inject(MatDialog);
+  private serverSettingsService = inject(ServerSettingsService);
   private cd = inject(ChangeDetectorRef);
+
+  readonly ldapEnabled = signal<boolean>(false);
 
   editUserForm: UntypedFormGroup;
   groups: Group[] = [];
@@ -81,6 +87,20 @@ export class UserDetailDialogComponent implements OnInit {
     this.initForm();
     this.loadGroupsData();
     this.loadAceData();
+    this.loadLdapStatus();
+  }
+
+  loadLdapStatus() {
+    this.serverSettingsService.getServerSettings(this.controller).subscribe({
+      next: (settings) => {
+        this.ldapEnabled.set(!!settings?.LDAP?.enabled);
+        this.cd.markForCheck();
+      },
+      error: () => {
+        this.ldapEnabled.set(false);
+        this.cd.markForCheck();
+      },
+    });
   }
 
   initForm() {
@@ -182,8 +202,13 @@ export class UserDetailDialogComponent implements OnInit {
     return dirtyValues;
   }
 
+  isPasswordChangeDisabled(): boolean {
+    return this.user.auth_source === 'ldap' && this.ldapEnabled();
+  }
+
   onChangePassword() {
-    if (this.user.auth_source === 'ldap') {
+    if (this.isPasswordChangeDisabled()) {
+      this.toasterService.info("Password is managed by your organization's directory (LDAP/Active Directory)");
       return;
     }
     this.dialog.open(ChangeUserPasswordComponent, {
