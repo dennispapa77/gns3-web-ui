@@ -13,43 +13,65 @@
           Configure Active Directory / LDAP identity federation and security group mapping
         </p>
       </div>
-      <div class="directory-management__header-actions">
-        <mat-slide-toggle [(ngModel)]="ldapSettings.enabled" (change)="onToggleEnabled()">
-          Enable Directory Authentication
-        </mat-slide-toggle>
-        <button
-          mat-stroked-button
-          type="button"
-          class="directory-management__button directory-management__button--secondary"
-          [disabled]="isSaving() || isTesting()"
-          (click)="discardChanges()"
-        >
-          <span>Discard</span>
-        </button>
-        <button
-          mat-flat-button
-          color="primary"
-          type="button"
-          class="directory-management__button directory-management__button--primary"
-          [disabled]="isSaving() || isTesting() || (ldapSettings.enabled && !isFormValid())"
-          (click)="save()"
-        >
-          @if (isSaving()) {
-            <mat-progress-spinner
-              diameter="16"
-              mode="indeterminate"
-              class="directory-management__spinner"
-            ></mat-progress-spinner>
-            <span>Saving...</span>
-          } @else {
-            <mat-icon>save</mat-icon>
-            <span>Save Changes</span>
-          }
-        </button>
-      </div>
+      @if (isServerSupported()) {
+        <div class="directory-management__header-actions">
+          <mat-slide-toggle [(ngModel)]="ldapSettings.enabled" (change)="onToggleEnabled()">
+            Enable Directory Authentication
+          </mat-slide-toggle>
+          <button
+            mat-stroked-button
+            type="button"
+            class="directory-management__button directory-management__button--secondary"
+            [disabled]="isSaving() || isTesting()"
+            (mousedown)="$event.preventDefault()"
+            (click)="discardChanges()"
+          >
+            <span>Discard</span>
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            class="directory-management__button directory-management__button--primary"
+            [disabled]="isSaving() || isTesting() || (ldapSettings.enabled && !isFormValid())"
+            (mousedown)="$event.preventDefault()"
+            (click)="save()"
+          >
+            @if (isSaving()) {
+              <mat-progress-spinner
+                diameter="16"
+                mode="indeterminate"
+                class="directory-management__spinner"
+              ></mat-progress-spinner>
+              <span>Saving...</span>
+            } @else {
+              <mat-icon>save</mat-icon>
+              <span>Save Changes</span>
+            }
+          </button>
+        </div>
+      }
     </header>
 
-    <div class="directory-management__content" [class.directory-management__content--disabled]="!ldapSettings.enabled">
+    @if (!isServerSupported()) {
+      <div class="directory-management__unsupported-card">
+        <mat-icon class="directory-management__unsupported-icon">info</mat-icon>
+        <div class="directory-management__unsupported-content">
+          <h2 class="directory-management__unsupported-title">Directory Management Unsupported</h2>
+          <p class="directory-management__unsupported-text">
+            The connected controller
+            @if (serverVersion()) {
+              (running GNS3 server <strong>v{{ serverVersion() }}</strong>)
+            }
+            does not support Directory Management (LDAP / Active Directory).
+          </p>
+          <p class="directory-management__unsupported-subtext">
+            To configure directory authentication and group mapping, upgrade the controller to a GNS3 v3.1 server build with LDAP support.
+          </p>
+        </div>
+      </div>
+    } @else {
+      <div class="directory-management__content" [class.directory-management__content--disabled]="!ldapSettings.enabled">
       <!-- Card D: Live Diagnostic Test Banner -->
       <section class="directory-management__banner">
         <div class="directory-management__banner-content">
@@ -63,7 +85,8 @@
           color="primary"
           type="button"
           class="directory-management__button directory-management__button--primary"
-          [disabled]="isTesting() || isSaving()"
+          [disabled]="isTesting() || (ldapSettings.enabled && !isFormValid())"
+          (mousedown)="$event.preventDefault()"
           (click)="testConnection()"
         >
           @if (isTesting()) {
@@ -107,7 +130,7 @@
         </div>
 
         <div class="directory-management__form-grid">
-          <mat-form-field appearance="fill">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Server Host / IP</mat-label>
             <input
               matInput
@@ -123,7 +146,7 @@
             }
           </mat-form-field>
 
-          <mat-form-field appearance="fill">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-label>Port</mat-label>
             <input
               matInput
@@ -141,7 +164,7 @@
             }
           </mat-form-field>
 
-          <mat-form-field appearance="fill" class="directory-management__full-width">
+          <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
             <mat-label>Service Account (Email, UPN, Username, or DN)</mat-label>
             <input
               matInput
@@ -154,7 +177,7 @@
             >
           </mat-form-field>
 
-          <mat-form-field appearance="fill" class="directory-management__full-width">
+          <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
             <mat-label>Bind Password</mat-label>
             <input
               matInput
@@ -176,7 +199,7 @@
             <mat-hint>Password for the service account (leave blank to keep existing)</mat-hint>
           </mat-form-field>
 
-          <mat-form-field appearance="fill" class="directory-management__half-width" subscriptSizing="dynamic">
+          <mat-form-field appearance="outline" class="directory-management__half-width" subscriptSizing="dynamic">
             <mat-label>Network Timeout (seconds)</mat-label>
             <input matInput type="number" min="1" max="120" [(ngModel)]="ldapSettings.timeout" (blur)="onFieldBlur()" />
             <mat-hint>Timeout in seconds for queries (1-120s)</mat-hint>
@@ -230,7 +253,7 @@
         </div>
 
         <div class="directory-management__form-grid">
-          <mat-form-field appearance="fill" class="directory-management__full-width">
+          <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
             <mat-label>CA Certificate File (Optional)</mat-label>
             <input
               matInput
@@ -267,7 +290,7 @@
         </div>
 
         <div class="directory-management__form-grid">
-          <mat-form-field appearance="fill" class="directory-management__full-width">
+          <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
             <mat-label>Base DN</mat-label>
             <input matInput [(ngModel)]="ldapSettings.base_dn" (blur)="onFieldBlur()" placeholder="DC=example,DC=com" />
             <mat-hint>Base Distinguished Name for user and group searches (e.g. DC=example,DC=com)</mat-hint>
@@ -321,7 +344,7 @@
           </div>
         } @else {
           <div class="directory-management__form-grid">
-            <mat-form-field appearance="fill" class="directory-management__full-width">
+            <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
               <mat-label>User Search Filter</mat-label>
               <input
                 matInput
@@ -332,7 +355,7 @@
               <mat-hint>Filter to locate user. {{ '{username}' }} is replaced with the entered login name.</mat-hint>
             </mat-form-field>
 
-            <mat-form-field appearance="fill">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Username Attribute</mat-label>
               <input
                 matInput
@@ -342,12 +365,12 @@
               />
             </mat-form-field>
 
-            <mat-form-field appearance="fill">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Email Attribute</mat-label>
               <input matInput [(ngModel)]="ldapSettings.user_attr_email" (blur)="onFieldBlur()" placeholder="mail" />
             </mat-form-field>
 
-            <mat-form-field appearance="fill">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Full Name Attribute</mat-label>
               <input
                 matInput
@@ -357,7 +380,7 @@
               />
             </mat-form-field>
 
-            <mat-form-field appearance="fill" class="directory-management__full-width">
+            <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
               <mat-label>Group Search Filter</mat-label>
               <input
                 matInput
@@ -386,7 +409,7 @@
 
         <div class="directory-management__fallback-group-row">
           <mat-form-field
-            appearance="fill"
+            appearance="outline"
             class="directory-management__fallback-group-field"
             subscriptSizing="dynamic"
           >
@@ -417,7 +440,7 @@
             <ng-container matColumnDef="directoryGroup">
               <th mat-header-cell *matHeaderCellDef>Directory Security Group</th>
               <td mat-cell *matCellDef="let element">
-                <mat-form-field appearance="fill" class="directory-management__table-input" subscriptSizing="dynamic">
+                <mat-form-field appearance="outline" class="directory-management__table-input" subscriptSizing="dynamic">
                   <input
                     matInput
                     [(ngModel)]="element.directoryGroup"
@@ -433,7 +456,7 @@
             <ng-container matColumnDef="targetGroup">
               <th mat-header-cell *matHeaderCellDef>GNS3 Target Group</th>
               <td mat-cell *matCellDef="let element">
-                <mat-form-field appearance="fill" class="directory-management__table-input" subscriptSizing="dynamic">
+                <mat-form-field appearance="outline" class="directory-management__table-input" subscriptSizing="dynamic">
                   <mat-select
                     [value]="element.targetGroup"
                     (selectionChange)="onTargetGroupSelect($event, element); onFieldChange()"
@@ -499,6 +522,7 @@
         type="button"
         class="directory-management__button directory-management__button--secondary"
         [disabled]="isSaving() || isTesting()"
+        (mousedown)="$event.preventDefault()"
         (click)="discardChanges()"
       >
         <span>Discard Changes</span>
@@ -509,6 +533,7 @@
         type="button"
         class="directory-management__button directory-management__button--primary"
         [disabled]="isSaving() || isTesting() || (ldapSettings.enabled && !isFormValid())"
+        (mousedown)="$event.preventDefault()"
         (click)="save()"
       >
         @if (isSaving()) {
@@ -524,5 +549,6 @@
         }
       </button>
     </div>
+  }
   </div>
 }

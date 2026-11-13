@@ -21,6 +21,7 @@ import { GroupService } from '@services/group.service';
 import { ServerSettingsService } from '@services/server-settings.service';
 import { ToasterService } from '@services/toaster.service';
 import { UserService } from '@services/user.service';
+import { VersionService } from '@services/version.service';
 import {
   DirectoryManagementComponent,
   isValidHostOrIp,
@@ -37,6 +38,7 @@ describe('DirectoryManagementComponent', () => {
   let mockToasterService: any;
   let mockActivatedRoute: any;
   let mockDialog: any;
+  let mockVersionService: any;
 
   const mockController: Controller = {
     id: 1,
@@ -154,6 +156,10 @@ describe('DirectoryManagementComponent', () => {
       },
     };
 
+    mockVersionService = {
+      get: vi.fn().mockReturnValue(of({ version: '3.1.0' })),
+    };
+
     await TestBed.configureTestingModule({
       imports: [DirectoryManagementComponent],
       providers: [
@@ -164,6 +170,7 @@ describe('DirectoryManagementComponent', () => {
         { provide: ToasterService, useValue: mockToasterService },
         { provide: MatDialog, useValue: mockDialog },
         { provide: UserService, useValue: { list: vi.fn().mockReturnValue(of([])) } },
+        { provide: VersionService, useValue: mockVersionService },
       ],
     }).compileComponents();
 
@@ -172,17 +179,46 @@ describe('DirectoryManagementComponent', () => {
     component['dialog'] = mockDialog;
     fixture.detectChanges();
   });
-
   it('should create and load controller and directory settings', () => {
     expect(component).toBeTruthy();
     expect(mockControllerService.get).toHaveBeenCalledWith(1);
     expect(mockServerSettingsService.getServerSettings).toHaveBeenCalledWith(mockController);
     expect(mockGroupService.getGroups).toHaveBeenCalledWith(mockController);
+    expect(component.isServerSupported()).toBe(true);
     expect(component.isLoading()).toBe(false);
     expect(component.serverHost).toBe('dc1.example.com');
     expect(component.serverPort).toBe(636);
     expect(component.useLdaps).toBe(true);
     expect(component.availableGroups.length).toBe(3);
+  });
+
+  it('should detect unsupported server when settings.LDAP is missing and fetch version', () => {
+    mockServerSettingsService.getServerSettings.mockReturnValue(of({} as ServerSettings));
+    mockVersionService.get.mockReturnValue(of({ version: '3.1.0a6' }));
+
+    component.loadData();
+
+    expect(component.isServerSupported()).toBe(false);
+    expect(mockVersionService.get).toHaveBeenCalledWith(mockController);
+    expect(component.serverVersion()).toBe('3.1.0a6');
+  });
+
+  it('should not call updateServerSettings on save if server is unsupported', () => {
+    (component.isServerSupported as any).set(false);
+    mockServerSettingsService.updateServerSettings.mockClear();
+
+    component.save();
+
+    expect(mockServerSettingsService.updateServerSettings).not.toHaveBeenCalled();
+  });
+
+  it('should not call testLdapConnection if server is unsupported', () => {
+    (component.isServerSupported as any).set(false);
+    mockServerSettingsService.testLdapConnection.mockClear();
+
+    component.testConnection();
+
+    expect(mockServerSettingsService.testLdapConnection).not.toHaveBeenCalled();
   });
 
   it('should display error when controller loading fails', async () => {
@@ -387,6 +423,15 @@ describe('DirectoryManagementComponent', () => {
       expect(mockToasterService.error).toHaveBeenCalledWith('Connection timed out');
       expect(component.isTesting()).toBe(false);
     });
+
+    it('should not trigger test connection if already testing', () => {
+      (component.isTesting as any).set(true);
+      mockServerSettingsService.testLdapConnection.mockClear();
+
+      component.testConnection();
+
+      expect(mockServerSettingsService.testLdapConnection).not.toHaveBeenCalled();
+    });
   });
 
   describe('Save and Discard Changes', () => {
@@ -436,6 +481,17 @@ describe('DirectoryManagementComponent', () => {
 
       expect(component.serverHost).toBe('dc1.example.com');
       expect(mockToasterService.info).toHaveBeenCalledWith('Changes discarded');
+    });
+
+    it('should keep typed password and passwordChanged flag intact on auto-save', () => {
+      component.bindPassword = 'uncommitted_typed_password';
+      component.passwordChanged = true;
+
+      component.save(true);
+
+      expect(component.bindPassword).toBe('uncommitted_typed_password');
+      expect(component.passwordChanged).toBe(true);
+      expect(mockToasterService.success).toHaveBeenCalledWith('Directory settings saved successfully');
     });
   });
 
@@ -528,6 +584,9 @@ describe('DirectoryManagementComponent', () => {
       expect(isValidHostOrIp('localhost')).toBe(true);
       expect(isValidHostOrIp('')).toBe(false);
       expect(isValidHostOrIp('   ')).toBe(false);
+      expect(isValidHostOrIp('dc1.example.com ')).toBe(false);
+      expect(isValidHostOrIp(' 192.168.1.1')).toBe(false);
+      expect(isValidHostOrIp('192.168.1.1 ')).toBe(false);
       expect(isValidHostOrIp('invalid..host')).toBe(false);
     });
 

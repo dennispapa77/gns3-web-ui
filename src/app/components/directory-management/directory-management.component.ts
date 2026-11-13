@@ -37,6 +37,7 @@ import { ControllerService } from '@services/controller.service';
 import { GroupService } from '@services/group.service';
 import { ServerSettingsService } from '@services/server-settings.service';
 import { ToasterService } from '@services/toaster.service';
+import { VersionService } from '@services/version.service';
 
 export type DirectoryType = 'active_directory' | 'openldap' | 'custom';
 
@@ -49,7 +50,11 @@ export function isValidHostOrIp(value: string | null | undefined): boolean {
   if (!value || !value.trim()) {
     return false;
   }
-  const clean = value.trim().replace(/^ldaps?:\/\//, '');
+  // Host or IP must not contain any whitespace (leading, trailing, or internal)
+  if (/\s/.test(value)) {
+    return false;
+  }
+  const clean = value.replace(/^ldaps?:\/\//, '');
   if (!clean) {
     return false;
   }
@@ -155,12 +160,15 @@ export class DirectoryManagementComponent implements OnInit {
   private serverSettingsService = inject(ServerSettingsService);
   private groupService = inject(GroupService);
   private toasterService = inject(ToasterService);
+  private versionService = inject(VersionService);
   private dialog = inject(MatDialog);
-  public cd = inject(ChangeDetectorRef);
+  private cd = inject(ChangeDetectorRef);
 
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
   readonly isTesting = signal(false);
+  readonly isServerSupported = signal(true);
+  readonly serverVersion = signal<string | null>(null);
 
   controller: Controller | undefined;
   availableGroups: Group[] = [];
@@ -223,7 +231,22 @@ export class DirectoryManagementComponent implements OnInit {
     }).subscribe({
       next: ({ settings, groups }) => {
         this.availableGroups = groups || [];
-        this.initForm(settings?.LDAP);
+        const hasLdap = settings?.LDAP !== undefined && settings?.LDAP !== null;
+        this.isServerSupported.set(hasLdap);
+        if (hasLdap) {
+          this.initForm(settings.LDAP);
+        } else {
+          this.versionService.get(this.controller!).subscribe({
+            next: (v) => {
+              this.serverVersion.set(v.version);
+              this.cd.markForCheck();
+            },
+            error: () => {
+              this.serverVersion.set(null);
+              this.cd.markForCheck();
+            },
+          });
+        }
         this.isLoading.set(false);
         this.cd.markForCheck();
       },
@@ -601,7 +624,7 @@ export class DirectoryManagementComponent implements OnInit {
   }
 
   save(isAutoSave = false): void {
-    if (!this.controller || !this.isFormValid()) {
+    if (!this.controller || !this.isServerSupported() || !this.isFormValid() || this.isSaving()) {
       return;
     }
     this.isSaving.set(true);
@@ -610,7 +633,14 @@ export class DirectoryManagementComponent implements OnInit {
       next: (res) => {
         this.isSaving.set(false);
         this.toasterService.success('Directory settings saved successfully');
-        this.initForm(res.LDAP);
+        if (!isAutoSave) {
+          this.initForm(res.LDAP);
+        } else {
+          // Keep current in-memory fields intact during auto-save; update initialSettings to track saved state
+          if (res.LDAP) {
+            this.initialSettings = JSON.parse(JSON.stringify(res.LDAP));
+          }
+        }
         this.cd.markForCheck();
       },
       error: (err) => {
@@ -623,7 +653,7 @@ export class DirectoryManagementComponent implements OnInit {
   }
 
   testConnection(): void {
-    if (!this.controller) {
+    if (!this.controller || !this.isServerSupported() || this.isTesting()) {
       return;
     }
     this.isTesting.set(true);
