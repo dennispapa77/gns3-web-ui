@@ -198,15 +198,6 @@
             </button>
             <mat-hint>Password for the service account (leave blank to keep existing)</mat-hint>
           </mat-form-field>
-
-          <mat-form-field appearance="outline" class="directory-management__half-width" subscriptSizing="dynamic">
-            <mat-label>Network Timeout (seconds)</mat-label>
-            <input matInput type="number" min="1" max="120" [(ngModel)]="ldapSettings.timeout" (blur)="onFieldBlur()" />
-            <mat-hint>Timeout in seconds for queries (1-120s)</mat-hint>
-            @if (!isTimeoutValid()) {
-              <mat-error>Timeout must be between 1 and 120s</mat-error>
-            }
-          </mat-form-field>
         </div>
 
         <div class="directory-management__checkbox-group">
@@ -251,19 +242,6 @@
             >
           </div>
         </div>
-
-        <div class="directory-management__form-grid">
-          <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
-            <mat-label>CA Certificate File (Optional)</mat-label>
-            <input
-              matInput
-              [(ngModel)]="ldapSettings.ca_cert_file"
-              (blur)="onFieldBlur()"
-              placeholder="/etc/ssl/certs/custom-ca.pem"
-            />
-            <mat-hint>Path on server to custom CA certificate for TLS verification</mat-hint>
-          </mat-form-field>
-        </div>
       </section>
 
       <!-- Card B: Directory Type & Search Scope -->
@@ -298,6 +276,29 @@
         </div>
 
         @if (directoryType !== 'custom') {
+          <div class="directory-management__form-grid">
+            <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
+              <mat-label>Canonical Username Format</mat-label>
+              <mat-select
+                [(ngModel)]="ldapSettings.user_attr_username"
+                (selectionChange)="onFieldChange()"
+              >
+                @if (directoryType === 'active_directory') {
+                  <mat-option value="sAMAccountName">sAMAccountName (Short username, e.g. user)</mat-option>
+                  <mat-option value="userPrincipalName">userPrincipalName (UPN, e.g. user@domain.com)</mat-option>
+                  <mat-option value="mail">mail (Email address, e.g. user@company.com)</mat-option>
+                } @else {
+                  <mat-option value="uid">uid (Short username, e.g. user)</mat-option>
+                  <mat-option value="mail">mail (Email address, e.g. user@company.com)</mat-option>
+                  <mat-option value="cn">cn (Common name, e.g. First Last)</mat-option>
+                }
+              </mat-select>
+              <mat-hint>
+                Official account format stored and displayed in GNS3 regardless of which login credential is used
+              </mat-hint>
+            </mat-form-field>
+          </div>
+
           <div class="directory-management__checkbox-group">
             <label class="directory-management__section-label">Allowed Login Formats</label>
             <div class="directory-management__checkbox-item">
@@ -342,56 +343,118 @@
               >
             </div>
           </div>
-        } @else {
-          <div class="directory-management__form-grid">
-            <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
-              <mat-label>User Search Filter</mat-label>
-              <input
-                matInput
-                [(ngModel)]="ldapSettings.user_search_filter"
-                (blur)="onFieldBlur()"
-                placeholder="(&(objectClass=person)(|(uid={username})(sAMAccountName={username})))"
-              />
-              <mat-hint>Filter to locate user. {{ '{username}' }} is replaced with the entered login name.</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Username Attribute</mat-label>
-              <input
-                matInput
-                [(ngModel)]="ldapSettings.user_attr_username"
-                (blur)="onFieldBlur()"
-                placeholder="sAMAccountName"
-              />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Email Attribute</mat-label>
-              <input matInput [(ngModel)]="ldapSettings.user_attr_email" (blur)="onFieldBlur()" placeholder="mail" />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Full Name Attribute</mat-label>
-              <input
-                matInput
-                [(ngModel)]="ldapSettings.user_attr_fullname"
-                (blur)="onFieldBlur()"
-                placeholder="displayName"
-              />
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
-              <mat-label>Group Search Filter</mat-label>
-              <input
-                matInput
-                [(ngModel)]="ldapSettings.group_search_filter"
-                (blur)="onFieldBlur()"
-                placeholder="(&(objectClass=group)(member={user_dn}))"
-              />
-              <mat-hint>Filter to locate user groups. {{ '{user_dn}' }} and {{ '{username}' }} are replaced.</mat-hint>
-            </mat-form-field>
-          </div>
         }
+
+        <!-- Collapsible Advanced Directory Settings & Custom Filters -->
+        <mat-accordion class="directory-management__accordion">
+          <mat-expansion-panel
+            [expanded]="isAdvancedExpanded() || directoryType === 'custom'"
+            (opened)="isAdvancedExpanded.set(true)"
+            (closed)="isAdvancedExpanded.set(false)"
+            class="directory-management__expansion-panel"
+          >
+            <mat-expansion-panel-header>
+              <mat-panel-title class="directory-management__panel-title">
+                <mat-icon>settings</mat-icon>
+                <span>Advanced Settings &amp; Filters</span>
+              </mat-panel-title>
+              <mat-panel-description class="directory-management__panel-desc">
+                Network timeout, CA certificate file, and query filters
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <div class="directory-management__panel-content">
+              <div class="directory-management__form-grid directory-management__form-grid--panel">
+                <mat-form-field appearance="outline" class="directory-management__half-width" subscriptSizing="dynamic">
+                  <mat-label>Network Timeout (seconds)</mat-label>
+                  <input
+                    matInput
+                    type="number"
+                    min="1"
+                    max="120"
+                    [(ngModel)]="ldapSettings.timeout"
+                    (blur)="onFieldBlur()"
+                  />
+                  <mat-hint>Timeout in seconds for queries (1-120s)</mat-hint>
+                  @if (!isTimeoutValid()) {
+                    <mat-error>Timeout must be between 1 and 120s</mat-error>
+                  }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
+                  <mat-label>CA Certificate File (Optional)</mat-label>
+                  <input
+                    matInput
+                    [(ngModel)]="ldapSettings.ca_cert_file"
+                    (blur)="onFieldBlur()"
+                    placeholder="/etc/ssl/certs/custom-ca.pem"
+                  />
+                  <mat-hint>Path on server to custom CA certificate for TLS verification</mat-hint>
+                </mat-form-field>
+              </div>
+
+              @if (directoryType === 'custom') {
+                <div class="directory-management__form-grid directory-management__form-grid--panel">
+                  <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
+                    <mat-label>User Search Filter</mat-label>
+                    <input
+                      matInput
+                      [(ngModel)]="ldapSettings.user_search_filter"
+                      (blur)="onFieldBlur()"
+                      placeholder="(&(objectClass=person)(|(uid={username})(sAMAccountName={username})))"
+                    />
+                    <mat-hint
+                      >Filter to locate user. {{ '{username}' }} is replaced with the entered login name.</mat-hint
+                    >
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Username Attribute</mat-label>
+                    <input
+                      matInput
+                      [(ngModel)]="ldapSettings.user_attr_username"
+                      (blur)="onFieldBlur()"
+                      placeholder="sAMAccountName"
+                    />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Email Attribute</mat-label>
+                    <input
+                      matInput
+                      [(ngModel)]="ldapSettings.user_attr_email"
+                      (blur)="onFieldBlur()"
+                      placeholder="mail"
+                    />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Full Name Attribute</mat-label>
+                    <input
+                      matInput
+                      [(ngModel)]="ldapSettings.user_attr_fullname"
+                      (blur)="onFieldBlur()"
+                      placeholder="displayName"
+                    />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="directory-management__full-width" subscriptSizing="dynamic">
+                    <mat-label>Group Search Filter</mat-label>
+                    <input
+                      matInput
+                      [(ngModel)]="ldapSettings.group_search_filter"
+                      (blur)="onFieldBlur()"
+                      placeholder="(&(objectClass=group)(member={user_dn}))"
+                    />
+                    <mat-hint
+                      >Filter to locate user groups. {{ '{user_dn}' }} and {{ '{username}' }} are replaced.</mat-hint
+                    >
+                  </mat-form-field>
+                </div>
+              }
+            </div>
+          </mat-expansion-panel>
+        </mat-accordion>
       </section>
 
       <!-- Card C: Interactive Proxmox-Style Group Mapping Table -->

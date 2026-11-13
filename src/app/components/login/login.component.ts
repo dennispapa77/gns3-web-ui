@@ -175,7 +175,7 @@ export class LoginComponent implements OnInit {
           localStorage.setItem(`refresh_token_${controller.id}`, response.refresh_token);
         }
 
-        controller.username = username;
+        controller.username = response.username || username;
         controller.password = password;
         controller.tokenExpired = false;
         await this.controllerService.update(controller);

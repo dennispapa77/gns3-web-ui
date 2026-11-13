@@ -20,6 +20,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { ErrorStateMatcher } from '@angular/material/core';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -143,6 +144,7 @@ export const DEFAULT_LDAP_SETTINGS: LdapSection = {
     MatCheckboxModule,
     MatDialogModule,
     MatDividerModule,
+    MatExpansionModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -169,6 +171,7 @@ export class DirectoryManagementComponent implements OnInit {
   readonly isTesting = signal(false);
   readonly isServerSupported = signal(true);
   readonly serverVersion = signal<string | null>(null);
+  readonly isAdvancedExpanded = signal(false);
 
   controller: Controller | undefined;
   availableGroups: Group[] = [];
@@ -461,6 +464,8 @@ export class DirectoryManagementComponent implements OnInit {
       this.ldapSettings.user_attr_email = 'mail';
       this.ldapSettings.user_attr_fullname = 'cn';
       this.ldapSettings.group_search_filter = '(&(objectClass=groupOfNames)(member={user_dn}))';
+    } else if (this.directoryType === 'custom') {
+      this.isAdvancedExpanded.set(true);
     }
     this.cd.markForCheck();
   }

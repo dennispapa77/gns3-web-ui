@@ -335,6 +335,13 @@ describe('DirectoryManagementComponent', () => {
       expect(component.generatedFilter).toBe('(&(objectClass=person)(mail={username}))');
     });
 
+    it('should auto-expand advanced accordion when custom directory type is selected', () => {
+      component.directoryType = 'custom';
+      component.onDirectoryTypeChange();
+
+      expect(component.isAdvancedExpanded()).toBe(true);
+    });
+
     it('should return raw user_search_filter in custom mode', () => {
       component.directoryType = 'custom';
       component.ldapSettings.user_search_filter = '(&(customClass=account)(customUser={username}))';
