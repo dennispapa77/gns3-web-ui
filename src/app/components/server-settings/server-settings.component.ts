@@ -88,7 +88,6 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
   readonly isLoading = signal(true);
   readonly loadError = signal<string | null>(null);
   readonly isSaving = signal(false);
-  readonly isTestingLdap = signal(false);
   readonly activeSection = signal<ServerSettingsSectionName>('Server');
   readonly sectionSchemas = signal<SettingsSectionSchemas | null>(null);
   readonly formValues = signal<ServerSettings | null>(null);
@@ -448,34 +447,6 @@ export class ServerSettingsComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.loadError.set(null);
     this.loadSettings();
-  }
-
-  testLdapConnection(): void {
-    if (!this.controller) {
-      return;
-    }
-
-    const currentValues = this.formValues();
-    const ldapValues = currentValues ? currentValues.LDAP : undefined;
-
-    this.isTestingLdap.set(true);
-    this.serverSettingsService.testLdapConnection(this.controller, ldapValues).subscribe({
-      next: (result) => {
-        this.isTestingLdap.set(false);
-        if (result.status === 'success') {
-          this.toaster.success(result.message);
-        } else {
-          this.toaster.error(result.message);
-        }
-        this.cd.markForCheck();
-      },
-      error: (err) => {
-        this.isTestingLdap.set(false);
-        const msg = err.error?.message || err.message || 'LDAP connection test failed';
-        this.toaster.error(msg);
-        this.cd.markForCheck();
-      },
-    });
   }
 
   private loadSettings() {

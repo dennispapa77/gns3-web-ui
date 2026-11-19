@@ -152,18 +152,18 @@
 </mat-dialog-content>
 
 <mat-dialog-actions>
-  <button
-    mat-button
-    (click)="onChangePassword()"
-    [disabled]="user.auth_source === 'ldap'"
-    [title]="
-      user.auth_source === 'ldap' ? 'Password is managed by your organization\'s directory (LDAP/Active Directory)' : ''
+  <span
+    [matTooltip]="
+      isPasswordChangeDisabled() ? 'Password is managed by your organization\'s directory (LDAP/Active Directory)' : ''
     "
+    matTooltipPosition="above"
   >
-    Change Password
-  </button>
-  <button mat-button (click)="onCancel()">Cancel</button>
-  <button mat-raised-button color="primary" (click)="onSaveChanges()" [disabled]="!editUserForm.valid">
+    <button mat-button type="button" (click)="onChangePassword()" [disabled]="isPasswordChangeDisabled()">
+      Reset Password
+    </button>
+  </span>
+  <button mat-button type="button" (click)="onCancel()">Cancel</button>
+  <button mat-raised-button color="primary" type="button" (click)="onSaveChanges()" [disabled]="!editUserForm.valid">
     Save changes
   </button>
 </mat-dialog-actions>

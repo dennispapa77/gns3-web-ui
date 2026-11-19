@@ -12,6 +12,7 @@ import { UserService } from '@services/user.service';
 import { ToasterService } from '@services/toaster.service';
 import { AclService } from '@services/acl.service';
 import { RoleService } from '@services/role.service';
+import { ServerSettingsService } from '@services/server-settings.service';
 import { User } from '@models/users/user';
 import { Controller } from '@models/controller';
 import { Group } from '@models/groups/group';
@@ -28,6 +29,7 @@ describe('UserDetailDialogComponent', () => {
   let mockToasterService: Partial<ToasterService>;
   let mockAclService: Partial<AclService>;
   let mockRoleService: Partial<RoleService>;
+  let mockServerSettingsService: any;
   let mockDialog: MatDialog;
   let mockDialogRef: MatDialogRef<UserDetailDialogComponent>;
 
@@ -113,6 +115,7 @@ describe('UserDetailDialogComponent', () => {
     mockToasterService = {
       success: vi.fn(),
       error: vi.fn(),
+      info: vi.fn(),
     };
 
     mockAclService = {
@@ -132,6 +135,10 @@ describe('UserDetailDialogComponent', () => {
     mockDialog = {
       open: vi.fn().mockReturnValue(mockDialogRef),
     } as any;
+
+    mockServerSettingsService = {
+      getServerSettings: vi.fn().mockReturnValue(of({ LDAP: { enabled: true } })),
+    };
 
     const dialogData: UserDetailDialogData = {
       user: mockUser,
@@ -156,6 +163,7 @@ describe('UserDetailDialogComponent', () => {
         { provide: ToasterService, useValue: mockToasterService },
         { provide: AclService, useValue: mockAclService },
         { provide: RoleService, useValue: mockRoleService },
+        { provide: ServerSettingsService, useValue: mockServerSettingsService },
         { provide: ChangeDetectorRef, useValue: { markForCheck: vi.fn() } },
       ],
     }).compileComponents();
@@ -486,11 +494,23 @@ describe('UserDetailDialogComponent', () => {
       expect(dialogSpy).toHaveBeenCalled();
     });
 
-    it('should not open change password dialog when auth_source is ldap', () => {
+    it('should not open change password dialog when auth_source is ldap and ldap is enabled', () => {
       const dialogSpy = vi.spyOn(component['dialog'], 'open').mockReturnValue({} as any);
       component.user = { ...mockUser, auth_source: 'ldap' };
+      component.ldapEnabled.set(true);
       component.onChangePassword();
       expect(dialogSpy).not.toHaveBeenCalled();
+      expect(mockToasterService.info).toHaveBeenCalledWith(
+        "Password is managed by your organization's directory (LDAP/Active Directory)",
+      );
+    });
+
+    it('should open change password dialog when auth_source is ldap but ldap is disabled', () => {
+      const dialogSpy = vi.spyOn(component['dialog'], 'open').mockReturnValue({} as any);
+      component.user = { ...mockUser, auth_source: 'ldap' };
+      component.ldapEnabled.set(false);
+      component.onChangePassword();
+      expect(dialogSpy).toHaveBeenCalled();
     });
   });
 

@@ -26,19 +26,23 @@
 </mat-dialog-content>
 
 <mat-dialog-actions class="logged-user__actions" align="end">
-  <button
-    mat-raised-button
-    color="primary"
-    [disabled]="user()?.auth_source === 'ldap'"
-    [title]="
+  <span
+    [matTooltip]="
       user()?.auth_source === 'ldap'
         ? 'Password is managed by your organization\'s directory (LDAP/Active Directory)'
         : ''
     "
-    (click)="changePassword()"
+    matTooltipPosition="above"
   >
-    Change password
-  </button>
+    <button
+      mat-raised-button
+      color="primary"
+      [disabled]="user()?.auth_source === 'ldap'"
+      (click)="changePassword()"
+    >
+      Change password
+    </button>
+  </span>
   <button mat-raised-button color="primary" (click)="copyToken()">Copy access token</button>
   <button mat-button (click)="close()">Close</button>
 </mat-dialog-actions>

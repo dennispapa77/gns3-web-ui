@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ControllerService } from '@services/controller.service';
 import { UserService } from '@services/user.service';
 import { ToasterService } from '@services/toaster.service';
@@ -18,7 +19,7 @@ export interface LoggedUserDialogData {
   selector: 'app-logged-user',
   templateUrl: './logged-user.component.html',
   styleUrl: './logged-user.component.scss',
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoggedUserComponent implements OnInit {
